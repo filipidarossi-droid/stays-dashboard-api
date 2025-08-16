@@ -41,7 +41,7 @@ API FastAPI para integração com a plataforma Stays, fornecendo endpoints para 
 DATABASE_URL=postgresql://stays_dashboard_db_user:pWOjGiwIwpYBkMaM9gRLO3BwTqmIjHLO@dpg-d2ga2ugdl3ps73f31f70-a/stays_dashboard_db
 
 # Token de Autenticação (43 caracteres - NUNCA COMMITAR)
-API_TOKEN=OkcL1yODuVSaB725koNMGL_Gml28lJIrxeV9RWfbHxE
+API_TOKEN=YOUR_SECURE_43_CHAR_TOKEN_HERE
 
 # CORS (TRAVADO para frontend de produção)
 CORS_ORIGINS=https://stays-dashboard-web.onrender.com
@@ -115,7 +115,7 @@ curl -s -H "Authorization: Bearer TOKEN" https://stays-dashboard-api.onrender.co
 
 ### Teste de Webhook Idempotente
 ```bash
-TOKEN="OkcL1yODuVSaB725koNMGL_Gml28lJIrxeV9RWfbHxE"
+TOKEN="YOUR_SECURE_43_CHAR_TOKEN_HERE"
 PAYLOAD='{"event":"test","reservation_id":"TEST-123","updated_at":"2025-08-16T15:45:00Z"}'
 
 # 1ª chamada (deve processar)
@@ -340,7 +340,7 @@ fetch('https://api.seudominio.com/calendario', {cache:'no-store'})
 - Confirme que o banco está ativo no Render Dashboard
 
 ### Erro 401/403 no Webhook
-- Verifique header: `Authorization: Bearer OkcL1yODuVSaB725koNMGL_Gml28lJIrxeV9RWfbHxE`
+- Verifique header: `Authorization: Bearer YOUR_SECURE_43_CHAR_TOKEN_HERE`
 - Confirme `API_TOKEN` nas variáveis de ambiente
 - Token deve ter exatamente 43 caracteres
 
