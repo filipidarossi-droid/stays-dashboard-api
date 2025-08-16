@@ -1,250 +1,315 @@
 # Stays Dashboard API
 
-API FastAPI para integração com a plataforma Stays, fornecendo endpoints para consulta de reservas, calendário e cálculo de repasse.
+API FastAPI para integração com a plataforma Stays, fornecendo endpoints para dashboard de ocupação, calendário e cálculos de repasse.
 
 ## 🚀 Funcionalidades
 
-- **GET /health** - Health check da API
-- **GET /reservas** - Lista reservas por período
-- **GET /calendario** - Visualização de calendário com reservas
-- **GET /repasse** - Cálculo de repasse com base nas reservas
-- **POST /webhooks/stays** - Webhook para atualizações da Stays (opcional)
+- **Autenticação**: Bearer token para proteção de webhooks
+- **Calendário**: Visualização de reservas por mês com status detalhado
+- **Ocupação**: Cálculo de métricas de ocupação (até hoje, futuro, fechamento)
+- **Repasse**: Cálculo financeiro com base nas reservas
+- **Webhooks**: Endpoint idempotente para receber atualizações da plataforma Stays
+- **Persistência**: PostgreSQL para armazenamento confiável
+- **Cache**: Sistema de cache em memória para otimização
+- **Monitoramento**: Health check com verificação de conectividade
+- **Segurança**: CORS restrito, PII mascarado, tokens seguros
 
-## 📋 Pré-requisitos
+## 📋 Endpoints
 
-- Python 3.10+
-- Conta na Stays com credenciais de API
-- Conta no Render para deploy
+### Públicos
+- `GET /health` - Status da API e conectividade do banco
 
-## 🛠️ Instalação Local
+### Protegidos (Bearer Token)
+- `GET /reservas` - Lista reservas por período
+- `GET /calendario` - Calendário mensal com reservas
+- `GET /repasse` - Cálculo de repasse financeiro
+- `POST /webhooks/stays` - Webhook idempotente para atualizações da Stays
 
-### 1. Clone o repositório
+## 🔧 Configuração
+
+### Variáveis de Ambiente
+
 ```bash
-git clone <repository-url>
-cd stays-dashboard-api
-```
+# Banco de Dados (OBRIGATÓRIO em produção)
+DATABASE_URL=postgresql://user:password@host:port/database
 
-### 2. Crie ambiente virtual
-```bash
-python -m venv .venv
-source .venv/bin/activate  # Linux/Mac
-# ou
-.venv\Scripts\activate  # Windows
-```
+# Autenticação (OBRIGATÓRIO - mínimo 32 caracteres)
+API_TOKEN=your-secure-token-here-minimum-32-chars
 
-### 3. Instale dependências
-```bash
-pip install -r requirements.txt
-```
+# CORS (domínios permitidos)
+CORS_ORIGINS=https://stays-dashboard-web.onrender.com,https://your-custom-domain.com
 
-### 4. Configure variáveis de ambiente
-```bash
-cp .env.example .env
-```
+# Integração Stays
+STAYS_URL=https://your-account.stays.net
+STAYS_LOGIN=your_username
+STAYS_PASSWORD=your_password
 
-Edite o arquivo `.env` com suas credenciais:
-```env
-STAYS_URL=https://sua-conta.stays.net
-STAYS_LOGIN=seu_login
-STAYS_PASSWORD=sua_senha
-API_TOKEN=seu_token_seguro_aqui
-CORS_ORIGINS=https://seu-dominio.com,http://localhost:3000
+# Configurações de Negócio
 META_REPASSE=3500
 INCLUIR_LIMPEZA_DEFAULT=true
+
+# Timezone
+TZ=America/Sao_Paulo
 ```
 
-### 5. Execute a aplicação
+### Banco de Dados PostgreSQL
+
+A API requer PostgreSQL em produção. As tabelas são criadas automaticamente:
+
+```sql
+-- Reservas
+CREATE TABLE IF NOT EXISTS reservations (
+  id VARCHAR PRIMARY KEY,
+  listing_id VARCHAR,
+  checkin DATE,
+  checkout DATE,
+  gross_total FLOAT,
+  channel VARCHAR,
+  guest_hash VARCHAR,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Calendário
+CREATE TABLE IF NOT EXISTS calendars (
+  id SERIAL PRIMARY KEY,
+  listing_id VARCHAR,
+  date DATE,
+  reserved BOOLEAN,
+  source VARCHAR,
+  created_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(listing_id, date)
+);
+
+-- Eventos de Webhook (idempotência)
+CREATE TABLE IF NOT EXISTS webhook_events (
+  id SERIAL PRIMARY KEY,
+  event_hash VARCHAR UNIQUE NOT NULL,
+  received_at TIMESTAMP DEFAULT NOW(),
+  raw JSONB
+);
+```
+
+## 🏃‍♂️ Execução Local
+
+### Pré-requisitos
+- Python 3.12+
+- PostgreSQL (local ou Docker)
+
+### Setup
 ```bash
-uvicorn main:app --reload
+# Clone e entre no diretório
+git clone https://github.com/filipidarossi-droid/stays-dashboard-api.git
+cd stays-dashboard-api
+
+# Crie ambiente virtual
+python -m venv .venv
+source .venv/bin/activate  # Linux/Mac
+# ou .venv\Scripts\activate  # Windows
+
+# Instale dependências
+pip install -r requirements.txt
+
+# Gere token seguro
+python generate_token.py
+
+# Configure variáveis de ambiente
+cp .env.example .env
+# Edite .env com suas configurações
+
+# Execute a API
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-A API estará disponível em: http://localhost:8000
-
-## 📚 Documentação da API
-
-### Autenticação
-
-Todos os endpoints (exceto `/health`) requerem autenticação via Bearer Token:
-
+### PostgreSQL Local (Docker)
 ```bash
-curl -H "Authorization: Bearer SEU_TOKEN" http://localhost:8000/reservas
-```
+# Inicie PostgreSQL
+docker run --name stays-postgres -e POSTGRES_PASSWORD=password -e POSTGRES_DB=stays -p 5432:5432 -d postgres:15
 
-### Endpoints
-
-#### GET /health
-```bash
-curl http://localhost:8000/health
-```
-Resposta:
-```json
-{"status": "ok"}
-```
-
-#### GET /reservas
-```bash
-curl -H "Authorization: Bearer SEU_TOKEN" \
-  "http://localhost:8000/reservas?from=2025-08-01&to=2025-08-31&listing_id=1"
-```
-
-Parâmetros:
-- `from` (obrigatório): Data inicial (YYYY-MM-DD)
-- `to` (obrigatório): Data final (YYYY-MM-DD)
-- `listing_id` (opcional): ID do imóvel
-
-#### GET /calendario
-```bash
-curl -H "Authorization: Bearer SEU_TOKEN" \
-  "http://localhost:8000/calendario?mes=2025-08"
-```
-
-Parâmetros:
-- `mes` (obrigatório): Mês no formato YYYY-MM
-
-#### GET /repasse
-```bash
-curl -H "Authorization: Bearer SEU_TOKEN" \
-  "http://localhost:8000/repasse?mes=2025-08&incluir_limpeza=true"
-```
-
-Parâmetros:
-- `mes` (obrigatório): Mês no formato YYYY-MM
-- `incluir_limpeza` (opcional): true/false, padrão definido em INCLUIR_LIMPEZA_DEFAULT
-
-#### POST /webhooks/stays
-```bash
-curl -X POST -H "Authorization: Bearer SEU_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"event": "reservation_updated"}' \
-  http://localhost:8000/webhooks/stays
+# Configure DATABASE_URL no .env
+DATABASE_URL=postgresql://postgres:password@localhost:5432/stays
 ```
 
 ## 🚀 Deploy no Render
 
-### 1. Conecte o repositório
-- Acesse [Render](https://render.com)
-- Conecte sua conta GitHub
-- Selecione o repositório
+### 1. PostgreSQL Database
+1. Render Dashboard → New → PostgreSQL
+2. Nome: `stays-dashboard-db`
+3. Copie a `DATABASE_URL` gerada
 
-### 2. Configure o Web Service
-- **Runtime**: Python 3
-- **Branch**: main
-- **Build Command**: `pip install -r requirements.txt`
-- **Start Command**: `uvicorn main:app --host 0.0.0.0 --port $PORT --proxy-headers`
+### 2. Web Service
+1. Render Dashboard → New → Web Service
+2. Conecte ao repositório GitHub
+3. Configurações:
+   - **Runtime**: Python 3
+   - **Build Command**: `pip install -r requirements.txt`
+   - **Start Command**: `uvicorn main:app --host 0.0.0.0 --port $PORT`
 
-### 3. Configure variáveis de ambiente
-No painel do Render, adicione:
-- `STAYS_URL`
-- `STAYS_LOGIN`
-- `STAYS_PASSWORD`
-- `API_TOKEN`
-- `CORS_ORIGINS`
-- `META_REPASSE`
-- `INCLUIR_LIMPEZA_DEFAULT`
+### 3. Environment Variables
+Adicione no Render → Settings → Environment:
 
-### 4. Deploy automático
-- Habilite "Auto-Deploy" para deploy automático a cada push na branch main
+```
+DATABASE_URL=postgresql://...  # Da etapa 1
+API_TOKEN=generate-secure-32-char-token
+CORS_ORIGINS=https://stays-dashboard-web.onrender.com
+STAYS_URL=https://your-account.stays.net
+STAYS_LOGIN=your_username
+STAYS_PASSWORD=your_password
+META_REPASSE=3500
+INCLUIR_LIMPEZA_DEFAULT=true
+TZ=America/Sao_Paulo
+```
 
-## 🔧 Estrutura do Projeto
+### 4. Domínio Customizado (Opcional)
+1. Render → Service → Settings → Custom Domains
+2. Adicione `api.seudominio.com`
+3. Configure CNAME no DNS: `api.seudominio.com` → `your-service.onrender.com`
+4. Aguarde TLS ficar "Ready"
+5. Atualize `CORS_ORIGINS` para incluir o novo domínio
 
+## 🔗 Webhook da Stays
+
+### Configuração na Plataforma Stays
+```
+URL: https://stays-dashboard-api.onrender.com/webhooks/stays
+Método: POST
+Content-Type: application/json
+Authorization: Bearer YOUR_API_TOKEN
+Eventos: reservation.created, reservation.updated, reservation.cancelled
+```
+
+### Teste do Webhook
+```bash
+curl -X POST https://stays-dashboard-api.onrender.com/webhooks/stays \
+  -H "Authorization: Bearer YOUR_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event": "reservation.created",
+    "data": {
+      "id": "RES123",
+      "listing_id": "1",
+      "checkin": "2025-08-20",
+      "checkout": "2025-08-25",
+      "total_bruto": 500.00,
+      "canal": "Airbnb",
+      "hospede": "João Silva"
+    }
+  }'
+```
+
+### Idempotência
+O webhook implementa idempotência automática:
+- Primeiro envio: `{"ok": true, "duplicate": false}`
+- Envios duplicados: `{"ok": true, "duplicate": true}`
+
+## 📊 Monitoramento
+
+### Health Check
+```bash
+curl https://stays-dashboard-api.onrender.com/health
+# Resposta: {"status": "ok"}
+```
+
+### UptimeRobot
+Configure monitoramento HTTP:
+- **URL**: `https://stays-dashboard-api.onrender.com/health`
+- **Intervalo**: 1 minuto
+- **Método**: GET
+- **Esperado**: Status 200 + `{"status":"ok"}`
+
+## 🔒 Segurança
+
+### Token de API
+- Mínimo 32 caracteres
+- Use gerador seguro: `python generate_token.py`
+- Rotacione periodicamente
+- Nunca commite no Git
+
+### CORS
+- Restrito aos domínios específicos
+- Não use `*` em produção
+- Inclua todos os domínios do frontend
+
+### Logs
+- PII mascarado automaticamente
+- Nomes: `João S***`
+- Telefones: removidos dos logs
+- IDs de hóspedes: hash SHA256
+
+## 🛠️ Troubleshooting
+
+### Erro 503 "Database not available"
+- Verifique `DATABASE_URL` nas variáveis de ambiente
+- Teste conectividade: `psql $DATABASE_URL -c "SELECT 1"`
+- Verifique logs do PostgreSQL no Render
+
+### Erro 401/403 no Webhook
+- Verifique `Authorization: Bearer TOKEN`
+- Confirme `API_TOKEN` nas variáveis de ambiente
+- Token deve ter ≥32 caracteres
+
+### CORS Blocked
+- Adicione domínio em `CORS_ORIGINS`
+- Formato: `https://domain.com,https://other.com`
+- Sem espaços, separado por vírgula
+
+### Frontend não atualiza
+- Webhook configurado corretamente?
+- Cache limpo após webhook?
+- Verifique logs da API
+
+### Performance
+- Cache ativo (TTL 15min)
+- Índices no PostgreSQL
+- Connection pooling automático
+
+## 📝 Desenvolvimento
+
+### Estrutura do Projeto
 ```
 stays-dashboard-api/
-├── main.py              # Aplicação FastAPI principal
-├── stays_client.py      # Cliente para API da Stays
-├── repasse.py          # Cálculos de repasse
-├── store.py            # Sistema de cache
-├── requirements.txt    # Dependências Python
-├── runtime.txt         # Versão do Python
-├── Procfile           # Configuração do Render
-├── .env.example       # Exemplo de variáveis de ambiente
-└── README.md          # Este arquivo
+├── main.py              # FastAPI app principal
+├── database.py          # Modelos e queries PostgreSQL
+├── stays_client.py      # Cliente da API Stays
+├── repasse.py           # Cálculos financeiros
+├── store.py             # Cache em memória
+├── generate_token.py    # Gerador de tokens seguros
+├── requirements.txt     # Dependências Python
+├── runtime.txt          # Versão Python (3.12.5)
+├── Procfile            # Comando de start
+└── README.md           # Esta documentação
 ```
 
-## 📊 Cálculo de Repasse
+### Padrões de Código
+- FastAPI + Pydantic para validação
+- SQLAlchemy para queries
+- Async/await para I/O
+- Logging estruturado
+- Error handling com HTTPException
+- Timezone: America/Sao_Paulo
 
-A fórmula utilizada:
-```
-repasse = valor_venda - taxa_limpeza(opcional) - taxa_api - comissao_anfitriao
-```
-
-Percentuais padrão:
-- Taxa de limpeza: 15% (se incluir_limpeza=true)
-- Taxa da API/plataforma: 3%
-- Comissão do anfitrião: 10%
-
-## 🔄 Cache
-
-A API utiliza cache com TTL de 15 minutos para:
-- Consultas de reservas
-- Dados do calendário
-- Cálculos de repasse
-
-O cache é limpo automaticamente via webhook `/webhooks/stays`.
-
-## 🧪 Testes
-
-### Teste local com curl
+### Testes
 ```bash
-# Health check
-curl http://localhost:8000/health
+# Execute testes (quando disponíveis)
+pytest
 
-# Teste com autenticação
-export TOKEN="seu_token_aqui"
-curl -H "Authorization: Bearer $TOKEN" \
-  "http://localhost:8000/reservas?from=2025-08-01&to=2025-08-31"
+# Lint
+flake8 main.py database.py
+
+# Type check
+mypy main.py
 ```
-
-### Teste de CORS
-```bash
-curl -H "Origin: https://seu-dominio.com" \
-  -H "Access-Control-Request-Method: GET" \
-  -H "Access-Control-Request-Headers: authorization" \
-  -X OPTIONS http://localhost:8000/reservas
-```
-
-## 🐛 Troubleshooting
-
-### Erro de build no Render
-- Verifique se todas as dependências em `requirements.txt` são compatíveis
-- Confirme que `runtime.txt` especifica Python 3.10.13
-- Evite pacotes que requerem compilação (Rust, C++)
-
-### Erro de autenticação
-- Verifique se `API_TOKEN` está configurado corretamente
-- Confirme que o header `Authorization: Bearer TOKEN` está sendo enviado
-
-### Erro de CORS
-- Verifique se `CORS_ORIGINS` inclui o domínio correto
-- Para desenvolvimento local, inclua `http://localhost:3000`
-
-## 📝 Logs
-
-Para visualizar logs no Render:
-```bash
-# Via CLI do Render (se instalado)
-render logs -s seu-service-id
-
-# Ou acesse o painel web do Render
-```
-
-## 🔐 Segurança
-
-- Nunca commite credenciais no repositório
-- Use tokens seguros para `API_TOKEN`
-- Configure `CORS_ORIGINS` apenas para domínios confiáveis
-- Monitore logs para tentativas de acesso não autorizado
 
 ## 📞 Suporte
 
-Para problemas com a integração Stays:
-1. Verifique as credenciais em `STAYS_URL`, `STAYS_LOGIN`, `STAYS_PASSWORD`
-2. Confirme se a API da Stays está acessível
-3. Verifique os logs da aplicação para erros específicos
+Para problemas ou dúvidas:
+1. Verifique logs no Render Dashboard
+2. Teste endpoints com Postman/curl
+3. Confirme variáveis de ambiente
+4. Verifique conectividade do banco
 
-## 🔄 Atualizações
+---
 
-Para atualizar a aplicação:
-1. Faça as alterações no código
-2. Commit e push para a branch main
-3. O Render fará deploy automático
-4. Monitore os logs para confirmar sucesso
+**Versão**: 2.0.0  
+**Última atualização**: Agosto 2025  
+**Hardening**: PostgreSQL, Segurança, Idempotência
