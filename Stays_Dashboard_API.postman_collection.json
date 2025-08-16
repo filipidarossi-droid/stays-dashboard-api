@@ -70,6 +70,12 @@
 							"key": "listing_id",
 							"value": "1",
 							"description": "Optional listing ID filter"
+						},
+						{
+							"key": "unidade_id",
+							"value": "{{test_unit_id}}",
+							"disabled": true,
+							"description": "Optional unit filter"
 						}
 					]
 				},
@@ -101,6 +107,12 @@
 							"key": "mes",
 							"value": "2025-08",
 							"description": "Month in YYYY-MM format"
+						},
+						{
+							"key": "unidade_id",
+							"value": "{{test_unit_id}}",
+							"disabled": true,
+							"description": "Optional unit filter"
 						}
 					]
 				},
@@ -137,6 +149,12 @@
 							"key": "incluir_limpeza",
 							"value": "true",
 							"description": "Include cleaning costs in calculation"
+						},
+						{
+							"key": "unidade_id",
+							"value": "{{test_unit_id}}",
+							"disabled": true,
+							"description": "Optional unit filter"
 						}
 					]
 				},
@@ -173,6 +191,12 @@
 							"key": "incluir_limpeza",
 							"value": "false",
 							"description": "Exclude cleaning costs from calculation"
+						},
+						{
+							"key": "unidade_id",
+							"value": "{{test_unit_id}}",
+							"disabled": true,
+							"description": "Optional unit filter"
 						}
 					]
 				},
@@ -245,6 +269,30 @@
 					]
 				},
 				"description": "Test authentication failure with invalid token - should return 401"
+			},
+			"response": []
+		},
+		{
+			"name": "Get Unidades",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{api_token}}",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/unidades",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"unidades"
+					]
+				},
+				"description": "Get list of active units/listings"
 			},
 			"response": []
 		},
