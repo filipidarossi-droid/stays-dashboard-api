@@ -32,7 +32,7 @@ security = HTTPBearer()
 DATABASE_URL = os.getenv("DATABASE_URL")
 if DATABASE_URL:
     engine = create_engine(
-        DATABASE_URL,
+        DATABASE_URL.replace("postgresql://", "postgresql+psycopg://"),
         pool_size=5, 
         max_overflow=5, 
         pool_pre_ping=True, 
