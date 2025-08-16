@@ -38,7 +38,7 @@ API FastAPI para integração com a plataforma Stays, fornecendo endpoints para 
 **Obrigatórias:**
 ```bash
 # Banco de Dados PostgreSQL (Render Internal Database URL)
-DATABASE_URL=postgresql://stays_dashboard_db_user:pWOjGiwIwpYBkMaM9gRLO3BwTqmIjHLO@dpg-d2ga2ugdl3ps73f31f70-a/stays_dashboard_db
+DATABASE_URL=postgresql://user:password@host:port/database
 
 # Token de Autenticação (43 caracteres - NUNCA COMMITAR)
 API_TOKEN=YOUR_SECURE_43_CHAR_TOKEN_HERE
