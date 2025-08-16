@@ -18,7 +18,7 @@ app = FastAPI(title="Stays Dashboard API", version="1.0.0")
 security = HTTPBearer()
 cache_store = CacheStore()
 
-CORS_ORIGINS = os.getenv("CORS_ORIGINS", "https://stays-dashboard-web.onrender.com,http://localhost:3000,http://localhost:8080").split(",")
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
 API_TOKEN = os.getenv("API_TOKEN", "default-token")
 
 app.add_middleware(
