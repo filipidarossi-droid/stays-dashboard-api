@@ -1,0 +1,286 @@
+{
+	"info": {
+		"_postman_id": "stays-dashboard-api-collection",
+		"name": "Stays Dashboard API",
+		"description": "Collection for testing the Stays Dashboard API deployed on Render",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "https://stays-dashboard-api.onrender.com",
+			"type": "string"
+		},
+		{
+			"key": "api_token",
+			"value": "test-token-12345",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "Health Check",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/health",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"health"
+					]
+				},
+				"description": "Health check endpoint - no authentication required"
+			},
+			"response": []
+		},
+		{
+			"name": "Get Reservations",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{api_token}}",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/reservas?from=2025-08-01&to=2025-08-31&listing_id=1",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"reservas"
+					],
+					"query": [
+						{
+							"key": "from",
+							"value": "2025-08-01",
+							"description": "Start date (YYYY-MM-DD)"
+						},
+						{
+							"key": "to",
+							"value": "2025-08-31",
+							"description": "End date (YYYY-MM-DD)"
+						},
+						{
+							"key": "listing_id",
+							"value": "1",
+							"description": "Optional listing ID filter"
+						}
+					]
+				},
+				"description": "Get reservations for a date range with optional listing filter"
+			},
+			"response": []
+		},
+		{
+			"name": "Get Calendar",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{api_token}}",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/calendario?mes=2025-08",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"calendario"
+					],
+					"query": [
+						{
+							"key": "mes",
+							"value": "2025-08",
+							"description": "Month in YYYY-MM format"
+						}
+					]
+				},
+				"description": "Get calendar view with reservations for a specific month"
+			},
+			"response": []
+		},
+		{
+			"name": "Calculate Repasse (with cleaning)",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{api_token}}",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/repasse?mes=2025-08&incluir_limpeza=true",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"repasse"
+					],
+					"query": [
+						{
+							"key": "mes",
+							"value": "2025-08",
+							"description": "Month in YYYY-MM format"
+						},
+						{
+							"key": "incluir_limpeza",
+							"value": "true",
+							"description": "Include cleaning costs in calculation"
+						}
+					]
+				},
+				"description": "Calculate financial repasse for a month including cleaning costs"
+			},
+			"response": []
+		},
+		{
+			"name": "Calculate Repasse (without cleaning)",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{api_token}}",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/repasse?mes=2025-08&incluir_limpeza=false",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"repasse"
+					],
+					"query": [
+						{
+							"key": "mes",
+							"value": "2025-08",
+							"description": "Month in YYYY-MM format"
+						},
+						{
+							"key": "incluir_limpeza",
+							"value": "false",
+							"description": "Exclude cleaning costs from calculation"
+						}
+					]
+				},
+				"description": "Calculate financial repasse for a month excluding cleaning costs"
+			},
+			"response": []
+		},
+		{
+			"name": "Webhook - Stays Update",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{api_token}}",
+						"type": "text"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"event\": \"reservation_updated\",\n    \"reservation_id\": \"RES123\",\n    \"timestamp\": \"2025-08-16T13:00:00Z\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/webhooks/stays",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"webhooks",
+						"stays"
+					]
+				},
+				"description": "Webhook endpoint for Stays platform updates - clears cache"
+			},
+			"response": []
+		},
+		{
+			"name": "Test Authentication Failure",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer invalid-token",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/reservas?from=2025-08-01&to=2025-08-31",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"reservas"
+					],
+					"query": [
+						{
+							"key": "from",
+							"value": "2025-08-01"
+						},
+						{
+							"key": "to",
+							"value": "2025-08-31"
+						}
+					]
+				},
+				"description": "Test authentication failure with invalid token - should return 401"
+			},
+			"response": []
+		},
+		{
+			"name": "CORS Preflight Test",
+			"request": {
+				"method": "OPTIONS",
+				"header": [
+					{
+						"key": "Origin",
+						"value": "http://localhost:3000",
+						"type": "text"
+					},
+					{
+						"key": "Access-Control-Request-Method",
+						"value": "GET",
+						"type": "text"
+					},
+					{
+						"key": "Access-Control-Request-Headers",
+						"value": "authorization",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/reservas",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"reservas"
+					]
+				},
+				"description": "Test CORS preflight request - should return appropriate CORS headers"
+			},
+			"response": []
+		}
+	]
+}
