@@ -281,3 +281,32 @@ class DatabaseStore:
         except Exception as e:
             logger.error(f"Failed to query reservations: {e}")
             raise
+    
+    def get_active_units(self) -> List[Dict[str, str]]:
+        """Get list of active units/listings from database"""
+        try:
+            with self.engine.connect() as conn:
+                query = text("""
+                    SELECT DISTINCT listing_id 
+                    FROM (
+                        SELECT listing_id FROM reservations WHERE listing_id IS NOT NULL
+                        UNION
+                        SELECT listing_id FROM calendars WHERE listing_id IS NOT NULL
+                    ) AS units
+                    ORDER BY listing_id
+                """)
+                
+                result = conn.execute(query)
+                units_data = result.fetchall()
+                
+                return [
+                    {
+                        "id": unit.listing_id,
+                        "nome": f"Unidade {unit.listing_id}"
+                    }
+                    for unit in units_data
+                ]
+                
+        except Exception as e:
+            logger.error(f"Failed to get active units: {e}")
+            raise

@@ -26,9 +26,10 @@ API FastAPI para integração com a plataforma Stays, fornecendo endpoints para 
 - `GET /health` - Status da API e conectividade do banco
 
 ### Protegidos (Bearer Token)
-- `GET /reservas` - Lista reservas por período
-- `GET /calendario` - Calendário mensal com reservas
-- `GET /repasse` - Cálculo de repasse financeiro
+- `GET /unidades` - Lista unidades ativas
+- `GET /reservas` - Lista reservas por período (com filtro opcional por unidade)
+- `GET /calendario` - Calendário mensal com reservas (com filtro opcional por unidade)
+- `GET /repasse` - Cálculo de repasse financeiro (com filtro opcional por unidade)
 - `POST /webhooks/stays` - Webhook idempotente para atualizações da Stays
 
 ## 🔧 Configuração
@@ -109,8 +110,13 @@ CREATE TABLE IF NOT EXISTS webhook_events (
 
 # Ou teste endpoints individuais:
 curl -s https://stays-dashboard-api.onrender.com/health | jq .
+curl -s -H "Authorization: Bearer TOKEN" https://stays-dashboard-api.onrender.com/unidades | jq .
 curl -s -H "Authorization: Bearer TOKEN" https://stays-dashboard-api.onrender.com/calendario?mes=2025-08 | jq .
 curl -s -H "Authorization: Bearer TOKEN" https://stays-dashboard-api.onrender.com/repasse?mes=2025-08 | jq .
+
+# Teste com filtro por unidade:
+curl -s -H "Authorization: Bearer TOKEN" https://stays-dashboard-api.onrender.com/calendario?mes=2025-08&unidade_id=CLO04 | jq .
+curl -s -H "Authorization: Bearer TOKEN" https://stays-dashboard-api.onrender.com/repasse?mes=2025-08&unidade_id=CLO04 | jq .
 ```
 
 ### Teste de Webhook Idempotente
@@ -403,6 +409,118 @@ Para problemas ou dúvidas:
 2. Teste endpoints com Postman/curl
 3. Confirme variáveis de ambiente
 4. Verifique conectividade do banco
+
+## 📋 Endpoints Detalhados
+
+### GET /unidades
+Lista todas as unidades ativas no sistema.
+
+**Headers:**
+- `Authorization: Bearer <API_TOKEN>`
+
+**Resposta:**
+```json
+[
+  {
+    "id": "CLO04",
+    "nome": "Unidade CLO04"
+  },
+  {
+    "id": "CLO05", 
+    "nome": "Unidade CLO05"
+  }
+]
+```
+
+### GET /reservas
+Lista reservas em um período específico.
+
+**Parâmetros:**
+- `from` (obrigatório): Data inicial (YYYY-MM-DD)
+- `to` (obrigatório): Data final (YYYY-MM-DD)
+- `listing_id` (opcional): Filtrar por unidade específica (compatibilidade)
+- `unidade_id` (opcional): Filtrar por unidade específica
+
+**Headers:**
+- `Authorization: Bearer <API_TOKEN>`
+
+**Resposta:**
+```json
+[
+  {
+    "id": "RES123",
+    "listing_id": "UNIT001",
+    "checkin": "2025-08-15",
+    "checkout": "2025-08-20",
+    "total_bruto": 1500.00,
+    "taxas": 150.00,
+    "canal": "Airbnb",
+    "hospede": "João S***",
+    "telefone": null
+  }
+]
+```
+
+### GET /calendario
+Retorna calendário mensal com reservas e métricas.
+
+**Parâmetros:**
+- `mes` (obrigatório): Mês no formato YYYY-MM
+- `unidade_id` (opcional): Filtrar por unidade específica
+
+**Headers:**
+- `Authorization: Bearer <API_TOKEN>`
+
+**Resposta:**
+```json
+{
+  "mes": "2025-08",
+  "dias": [
+    {
+      "dia": 1,
+      "data": "2025-08-01",
+      "reservas": [
+        {
+          "id": "RES123",
+          "hospede": "João S***",
+          "status": "checkin",
+          "total_bruto": 1500.00
+        }
+      ]
+    }
+  ]
+}
+```
+
+### GET /repasse
+Calcula repasse mensal com base nas reservas.
+
+**Parâmetros:**
+- `mes` (obrigatório): Mês no formato YYYY-MM
+- `incluir_limpeza` (opcional): true/false (padrão: true)
+- `unidade_id` (opcional): Filtrar por unidade específica
+
+**Headers:**
+- `Authorization: Bearer <API_TOKEN>`
+
+**Resposta:**
+```json
+{
+  "meta": 3500.0,
+  "repasse_estimado": 2850.75,
+  "status": "em progresso",
+  "detalhes": {
+    "total_vendas": 4200.00,
+    "total_limpeza": 420.00,
+    "total_taxa_api": 126.00,
+    "total_comissao_anfitriao": 420.00,
+    "incluiu_limpeza": true,
+    "numero_reservas": 3
+  }
+}
+```
+
+
 
 ---
 

@@ -133,6 +133,10 @@ class RepasseResponse(BaseModel):
     status: str
     detalhes: dict
 
+class UnidadeResponse(BaseModel):
+    id: str
+    nome: str
+
 def today_sp():
     return datetime.now(TIMEZONE).date()
 
@@ -250,12 +254,13 @@ async def get_reservas(
 @app.get("/calendario", response_model=CalendarioResponse)
 async def get_calendario(
     mes: str = Query(...),
+    unidade_id: Optional[str] = Query(None),
     token: str = Depends(verify_token)
 ):
     if not engine:
         raise HTTPException(status_code=503, detail="Database not available")
     
-    cache_key = f"calendario_{mes}"
+    cache_key = f"calendario_{mes}_{unidade_id or 'all'}"
     cached_result = cache_store.get(cache_key)
     
     if cached_result:
@@ -273,14 +278,20 @@ async def get_calendario(
             start_date = date(year, month, 1)
             end_date = date(year, month, num_days)
             
-            query = text("""
+            query_text = """
                 SELECT id, listing_id, checkin, checkout, gross_total, channel, guest_hash
                 FROM reservations 
                 WHERE checkin <= :end_date AND checkout >= :start_date
-                ORDER BY checkin
-            """)
+            """
+            params = {"start_date": start_date, "end_date": end_date}
             
-            result_rows = conn.execute(query, {"start_date": start_date, "end_date": end_date})
+            if unidade_id:
+                query_text += " AND listing_id = :listing_id"
+                params["listing_id"] = unidade_id
+            
+            query_text += " ORDER BY checkin"
+            
+            result_rows = conn.execute(text(query_text), params)
             reservations_data = result_rows.fetchall()
             
             dias = []
@@ -327,12 +338,13 @@ async def get_calendario(
 async def get_repasse(
     mes: str = Query(...),
     incluir_limpeza: bool = Query(default=None),
+    unidade_id: Optional[str] = Query(None),
     token: str = Depends(verify_token)
 ):
     if incluir_limpeza is None:
         incluir_limpeza = os.getenv("INCLUIR_LIMPEZA_DEFAULT", "true").lower() == "true"
     
-    cache_key = f"repasse_{mes}_{incluir_limpeza}"
+    cache_key = f"repasse_{mes}_{incluir_limpeza}_{unidade_id or 'all'}"
     cached_result = cache_store.get(cache_key)
     
     if cached_result:
@@ -438,6 +450,28 @@ async def webhook_stays(request: Request, authorization: Optional[str] = Header(
     except Exception as e:
         logger.error(f"Failed to process webhook: {e}")
         raise HTTPException(status_code=500, detail="Failed to process webhook")
+
+@app.get("/unidades", response_model=List[UnidadeResponse])
+async def get_unidades(token: str = Depends(verify_token)):
+    if not engine:
+        raise HTTPException(status_code=503, detail="Database not available")
+    
+    cache_key = "unidades_active"
+    cached_result = cache_store.get(cache_key)
+    
+    if cached_result:
+        return cached_result
+    
+    try:
+        from database import DatabaseStore
+        db_store = DatabaseStore()
+        units = db_store.get_active_units()
+        result = [UnidadeResponse(id=unit["id"], nome=unit["nome"]) for unit in units]
+        cache_store.set(cache_key, result, ttl=3600)
+        return result
+    except Exception as e:
+        logger.error(f"Failed to get units: {e}")
+        raise HTTPException(status_code=503, detail="Failed to retrieve units")
 
 if __name__ == "__main__":
     import uvicorn
