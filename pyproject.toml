@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "stays-dashboard-api"
+version = "0.1.0"
+description = "FastAPI API for Stays integration with reservations, calendar and repasse calculations"
+authors = ["Filipi Darossi <filipi.darossi@gmail.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+fastapi = "0.110.0"
+uvicorn = {extras = ["standard"], version = "0.29.0"}
+httpx = "0.27.0"
+pydantic = "2.6.4"
+python-dotenv = "1.0.1"
+orjson = "3.9.15"
+diskcache = "5.6.3"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+start = "uvicorn main:app --host 0.0.0.0 --port 8000"
