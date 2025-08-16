@@ -276,37 +276,50 @@ class DatabaseStore:
                         "telefone": None  # Masked for privacy
                     }
                     for res in reservations_data
-                ]
-                
-        except Exception as e:
-            logger.error(f"Failed to query reservations: {e}")
-            raise
-    
-    def get_active_units(self) -> List[Dict[str, str]]:
-        """Get list of active units/listings from database"""
-        try:
-            with self.engine.connect() as conn:
-                query = text("""
-                    SELECT DISTINCT listing_id 
-                    FROM (
-                        SELECT listing_id FROM reservations WHERE listing_id IS NOT NULL
-                        UNION
-                        SELECT listing_id FROM calendars WHERE listing_id IS NOT NULL
-                    ) AS units
-                    ORDER BY listing_id
-                """)
-                
-                result = conn.execute(query)
-                units_data = result.fetchall()
-                
-                return [
-                    {
-                        "id": unit.listing_id,
-                        "nome": f"Unidade {unit.listing_id}"
-                    }
-                    for unit in units_data
-                ]
-                
-        except Exception as e:
+                ]    def get_active_units(self) -> List[Dict[str, str]]:
+                            """
+                                    Get list of active units/listings from database with resilient fallback.
+                                            Tries multiple sources in order: units -> reservations -> calendars.
+                                                    Never raises exceptions, returns empty list in worst case.
+                                                            """
+                            candidates = [
+                                            # 1) Tabela 'units' (se existir)
+                                            """SELECT id, COALESCE(NULLIF(nome,''), id) AS nome
+                                                           FROM units
+                                                                          WHERE id IS NOT NULL AND id <> ''
+                                                                                         ORDER BY nome""",
+                                            # 2) Deduz de reservations (id + nome se existir)
+                                            """SELECT listing_id AS id,
+                                                                  COALESCE(NULLIF(MAX(unit_name),''), listing_id) AS nome
+                                                                                 FROM reservations
+                                                                                                WHERE listing_id IS NOT NULL AND listing_id <> ''
+                                                                                                               GROUP BY listing_id
+                                                                                                                              ORDER BY nome""",
+                                            # 3) Deduz de calendars (só id)
+                                            """SELECT listing_id AS id, listing_id AS nome
+                                                           FROM calendars
+                                                                          WHERE listing_id IS NOT NULL AND listing_id <> ''
+                                                                                         GROUP BY listing_id
+                                                                                                        ORDER BY listing_id""",
+                            ]
+
+                try:
+                                with self.engine.connect() as conn:
+                                                    for sql in candidates:
+                                                                            try:
+                                                                                                        rows = conn.execute(text(sql)).mappings().all()
+                                                                                                        units = [{"id": r["id"], "nome": r.get("nome") or r["id"]} for r in rows if r.get("id")]
+                                                                                                        if units:
+                                                                                                                                        return units
+                                                                                except Exception as e:
+                                                                                                            logger.warning(f"get_active_units fallback failed: {e}", exc_info=False)
+                                                                                                            continue
+                                                                                                    
+                        # All fallbacks failed, return empty list
+                        return []
+
+except Exception as e:
             logger.error(f"Failed to get active units: {e}")
-            raise
+            return []  # Never raise, always return list
+                
+    
